@@ -1,0 +1,203 @@
+import logging
+import sqlite3
+import datetime
+import threading
+from flask import Flask
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import (Application, CommandHandler, CallbackQueryHandler,
+                          MessageHandler, filters, ContextTypes)
+
+# 🔐 Укажи свой токен и Telegram ID
+BOT_TOKEN = "8368261957:AAHzGTDBMN4LQeELcMagiXDYkwC-aFcb6z8"
+ADMIN_ID = 472266770  # Замени на свой Telegram ID
+
+TARGET_AMOUNT = 1500  # Цель в лари
+DATABASE_NAME = "donations.db"
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+# ==== База данных ====
+def init_db():
+    with sqlite3.connect(DATABASE_NAME) as conn:
+        conn.execute('''
+            CREATE TABLE IF NOT EXISTS donations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                amount REAL,
+                status TEXT DEFAULT 'pending',
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        conn.commit()
+
+
+def save_donation(user_id, amount):
+    with sqlite3.connect(DATABASE_NAME) as conn:
+        conn.execute("INSERT INTO donations (user_id, amount) VALUES (?, ?)",
+                     (user_id, amount))
+        conn.commit()
+
+
+def get_total():
+    with sqlite3.connect(DATABASE_NAME) as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT SUM(amount) FROM donations WHERE status='confirmed'")
+        result = cur.fetchone()[0]
+        return result or 0
+
+
+def get_last_pending_id(user_id):
+    with sqlite3.connect(DATABASE_NAME) as conn:
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT id FROM donations WHERE user_id=? AND status='pending' ORDER BY id DESC LIMIT 1",
+            (user_id, ))
+        row = cur.fetchone()
+        return row[0] if row else None
+
+
+# ==== Интерфейс ====
+def progress_bar(current, target):
+    pct = min(100, int(current / target * 100))
+    bar = '▓' * (pct // 5) + '░' * (20 - pct // 5)
+    return f"[{bar}] {pct}%\n\nСобрано: {current:.2f} ₾ из {target} ₾"
+
+
+def confirm_keyboard(donation_id):
+    return InlineKeyboardMarkup([[
+        InlineKeyboardButton("✅ Подтвердить",
+                             callback_data=f"confirm_{donation_id}"),
+        InlineKeyboardButton("❌ Отклонить",
+                             callback_data=f"reject_{donation_id}")
+    ]])
+
+
+# ==== Обработчики ====
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    total = get_total()
+    keyboard = [[
+        InlineKeyboardButton("🎉 Сделать донат", callback_data="donate")
+    ], [InlineKeyboardButton("🔄 Обновить", callback_data="refresh")]]
+    await update.message.reply_text(
+        f"<b>Сбор на кондиционер для Каваи Суши!</b>\n\nГио хочет поставить кондиционер в Кавай Суши, чтобы мы могли еще с большим кайфом собираться там, но пока у него не хватает денег, поэтому он попросил выложить пост с просьбой сделать донаты на кондиционер, чтобы ускорить его покупку и установку!\n\nДонаты по желанию:\n\nBOG GE21BG0000000607397845 Aleksei Koniaev\n\nTBC GE89TB7056145064400005 Artem Proskurin\n\n{progress_bar(total, TARGET_AMOUNT)}\n\nНажмите кнопку ниже, чтобы заявить о переводе!",
+        parse_mode='HTML',
+        reply_markup=InlineKeyboardMarkup(keyboard))
+
+
+async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    if query.data == "donate":
+        context.user_data["awaiting"] = True
+        await query.message.reply_text(
+            "Введите сумму вашего доната (только цифры):")
+
+    elif query.data == "refresh":
+        total = get_total()
+        await query.edit_message_text(
+            f"<b>Сбор на кондиционер для Каваи Суши!</b>\n\nГио хочет поставить кондиционер в Кавай Суши, чтобы мы могли еще с большим кайфом собираться там, но пока у него не хватает денег, поэтому он попросил выложить пост с просьбой сделать донаты на кондиционер, чтобы ускорить его покупку и установку!\n\nДонаты по желанию:\n\nBOG GE21BG0000000607397845 Aleksei Koniaev\n\nTBC GE89TB7056145064400005 Artem Proskurin\n\n{progress_bar(total, TARGET_AMOUNT)}\n\nНажмите кнопку ниже, чтобы заявить о переводе!",
+            parse_mode='HTML',
+            reply_markup=query.message.reply_markup)
+
+
+async def handle_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.user_data.get("awaiting"):
+        return
+
+    try:
+        amount = float(update.message.text.replace(",", "."))
+        if amount <= 0:
+            raise ValueError
+    except:
+        await update.message.reply_text(
+            "❌ Введите корректную сумму (например: 50 или 75.5)")
+        return
+
+    context.user_data["awaiting"] = False
+    user_id = update.message.from_user.id
+    save_donation(user_id, amount)
+    donation_id = get_last_pending_id(user_id)
+
+    await update.message.reply_text(
+        "✅ Заявка на донат отправлена. Ожидайте подтверждения!")
+
+    await context.bot.send_message(
+        chat_id=ADMIN_ID,
+        text=
+        f"⚠️ Новая заявка на донат от @{update.message.from_user.username or user_id} на {amount} ₾",
+        reply_markup=confirm_keyboard(donation_id))
+
+
+async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    action, donation_id = query.data.split("_")
+    donation_id = int(donation_id)
+
+    if query.from_user.id != ADMIN_ID:
+        await query.message.reply_text(
+            "❌ Только админ может подтверждать переводы.")
+        return
+
+    with sqlite3.connect(DATABASE_NAME) as conn:
+        cur = conn.cursor()
+
+        if action == "confirm":
+            cur.execute("UPDATE donations SET status='confirmed' WHERE id=?",
+                        (donation_id, ))
+            status = "подтверждён"
+        else:
+            cur.execute("UPDATE donations SET status='rejected' WHERE id=?",
+                        (donation_id, ))
+            status = "отклонён"
+
+        cur.execute("SELECT user_id, amount FROM donations WHERE id=?",
+                    (donation_id, ))
+        user_id, amount = cur.fetchone()
+        conn.commit()
+
+    await context.bot.send_message(
+        chat_id=user_id,
+        text=f"🎉 Ваш донат на {amount} ₾ был {status}. Спасибо!")
+    await query.edit_message_text(f"Заявка #{donation_id} {status}.")
+
+
+# ==== Flask для Replit ====
+app = Flask(__name__)
+
+
+@app.route('/')
+def home():
+    return "Bot is alive!"
+
+
+def run_flask():
+    app.run(host='0.0.0.0', port=8080)
+
+
+# ==== Основной запуск ====
+def main():
+    init_db()
+
+    app_ = Application.builder().token(BOT_TOKEN).build()
+
+    app_.add_handler(CommandHandler("start", start))
+    app_.add_handler(CallbackQueryHandler(button,
+                                          pattern="^(donate|refresh)$"))
+    app_.add_handler(
+        CallbackQueryHandler(confirm, pattern="^(confirm|reject)_\\d+$"))
+    app_.add_handler(
+        MessageHandler(filters.TEXT & ~filters.COMMAND, handle_amount))
+
+    threading.Thread(target=run_flask, daemon=True).start()
+
+    app_.run_polling()
+
+
+if __name__ == '__main__':
+    main()
