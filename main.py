@@ -2,14 +2,15 @@ import logging
 import sqlite3
 import datetime
 import threading
+import os
 from flask import Flask
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (Application, CommandHandler, CallbackQueryHandler,
                           MessageHandler, filters, ContextTypes)
 
 # 🔐 Укажи свой токен и Telegram ID
-BOT_TOKEN = "8368261957:AAHzGTDBMN4LQeELcMagiXDYkwC-aFcb6z8"
-ADMIN_ID = 472266770  # Замени на свой Telegram ID
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+ADMIN_ID = int(os.getenv("ADMIN_ID"))
 
 TARGET_AMOUNT = 1500  # Цель в лари
 DATABASE_NAME = "donations.db"
