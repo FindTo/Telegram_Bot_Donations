@@ -4,7 +4,7 @@
   ],
   "routes": [
     {
-      "src": "/8368261957:AAGpwNtMwzNMZWxPiQZf-izp4X9-Hj0BQ28\"",
+      "src": "/8368261957:AAGpwNtMwzNMZWxPiQZf-izp4X9-Hj0BQ28",
       "dest": "app.py",
       "methods": ["GET", "POST"]
     }
