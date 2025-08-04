@@ -209,9 +209,9 @@ application.add_handler(CallbackQueryHandler(button, pattern="^(donate|refresh)$
 application.add_handler(CallbackQueryHandler(confirm, pattern="^(confirm|reject)_\\d+$"))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_amount))
 
+application.initialize()
+
 if __name__ == "__main__":
     mode = os.getenv("MODE", "polling")
     if mode == "polling":
         application.run_polling()
-
-application.initialize()
