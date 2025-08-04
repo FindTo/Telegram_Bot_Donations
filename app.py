@@ -186,8 +186,10 @@ async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
 def webhook():
     data = request.get_json(force=True)
     update = Update.de_json(data, bot)
-    asyncio.run(application.process_update(update))
+    loop = asyncio.get_event_loop()
+    loop.create_task(application.process_update(update))
     return "ok"
+
 
 # === Health check ===
 @app.route("/")
