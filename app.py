@@ -30,7 +30,11 @@ bot = Bot(token=BOT_TOKEN)
 application = Application.builder().token(BOT_TOKEN).build()
 
 def get_conn():
-    return psycopg2.connect(DATABASE_URL)
+    try:
+        return psycopg2.connect(DATABASE_URL)
+    except Exception as e:
+        print("Error during DB connection attempt:", e)
+        raise
 
 # === DB ===
 def init_db():
