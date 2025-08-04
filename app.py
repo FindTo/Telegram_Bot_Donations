@@ -87,6 +87,8 @@ def confirm_keyboard(donation_id):
         InlineKeyboardButton("❌ Отклонить", callback_data=f"reject_{donation_id}")
     ]])
 
+
+
 # === Handlers ===
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     total = get_total()
@@ -181,8 +183,17 @@ async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_message(chat_id=user_id, text=f"🎉 Ваш донат на {amount} ₾ был {status}. Спасибо!")
     await query.edit_message_text(f"Заявка #{donation_id} {status}.")
 
+# === Init ===
+init_db()
+application = Application.builder().token(BOT_TOKEN).build()
+application.add_handler(CommandHandler("start", start))
+application.add_handler(CallbackQueryHandler(button, pattern="^(donate|refresh)$"))
+application.add_handler(CallbackQueryHandler(confirm, pattern="^(confirm|reject)_\\d+$"))
+application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_amount))
 
-# ==== Flask для Replit ====
+application.initialize()
+
+
 # === Flask route for Telegram webhook ===
 @app.route("/webhook", methods=["POST"])
 def webhook():
@@ -200,16 +211,6 @@ def test():
 @app.route("/")
 def index():
     return "Bot is running on Vercel!"
-
-# === Init ===
-init_db()
-application = Application.builder().token(BOT_TOKEN).build()
-application.add_handler(CommandHandler("start", start))
-application.add_handler(CallbackQueryHandler(button, pattern="^(donate|refresh)$"))
-application.add_handler(CallbackQueryHandler(confirm, pattern="^(confirm|reject)_\\d+$"))
-application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_amount))
-
-application.initialize()
 
 if __name__ == "__main__":
     mode = os.getenv("MODE", "polling")
