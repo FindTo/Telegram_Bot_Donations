@@ -194,6 +194,10 @@ def webhook():
     return "ok", 200
 
 
+@app.route("/test", methods=["POST"])
+def test():
+    return "ok", 200
+
 # === Health check ===
 @app.route("/")
 def index():
