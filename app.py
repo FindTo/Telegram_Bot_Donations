@@ -186,7 +186,7 @@ async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ==== Flask для Replit ====
 # === Flask route for Telegram webhook ===
-@app.route(f"/{BOT_TOKEN}", methods=["POST"])
+@app.route(f"/{os.getenv('BOT_TOKEN')}", methods=["POST"])
 def webhook():
     data = request.get_json(force=True)
     update = Update.de_json(data, bot)
