@@ -12,6 +12,8 @@ load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
+BOG_IBAN = os.getenv("BOG_IBAN")
+TBC_IBAN = os.getenv("TBC_IBAN")
 TARGET_AMOUNT = float(os.getenv("TARGET", "1000"))
 PHOTO_URL = os.getenv("PHOTO_URL")
 DATABASE_NAME = "donations.db"
@@ -84,8 +86,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         f"<b>Сбор на кондиционер для Каваи Суши!</b>\n\n"
         f"Гио хочет поставить кондиционер в Кавай Суши, чтобы мы могли еще с большим кайфом собираться там, но пока у него не хватает денег, поэтому он попросил выложить пост с просьбой сделать донаты на кондиционер, чтобы ускорить его покупку и установку!\n\n"
         f"Донаты:\n\n"
-        f"BOG <code>GE21BG0000000607397845</code> Aleksei Koniaev\n"
-        f"TBC <code>GE89TB7056145064400005</code> Artem Proskurin\n\n"
+            f"BOG <code>{BOG_IBAN}</code> Aleksei Koniaev\n"
+            f"TBC <code>{TBC_IBAN}</code> Artem Proskurin\n\n"
         f"{progress_bar(total, TARGET_AMOUNT)}\n\n"
         f"Нажмите кнопку ниже, чтобы заявить о переводе!",
         parse_mode='HTML',
@@ -102,13 +104,12 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif query.data == "refresh":
         total = get_total()
-        await context.bot.send_photo(chat_id=update.effective_chat.id, photo=PHOTO_URL)
         await query.edit_message_text(
             f"<b>Сбор на кондиционер для Каваи Суши!</b>\n\n"
             f"Гио хочет поставить кондиционер в Кавай Суши, чтобы мы могли еще с большим кайфом собираться там, но пока у него не хватает денег, поэтому он попросил выложить пост с просьбой сделать донаты на кондиционер, чтобы ускорить его покупку и установку!\n\n"
             f"Донаты:\n\n"
-            f"BOG <code>GE21BG0000000607397845</code> Aleksei Koniaev\n"
-            f"TBC <code>GE89TB7056145064400005</code> Artem Proskurin\n\n"
+            f"BOG <code>{BOG_IBAN}</code> Aleksei Koniaev\n"
+            f"TBC <code>{TBC_IBAN}</code> Artem Proskurin\n\n"
             f"{progress_bar(total, TARGET_AMOUNT)}\n\n"
             f"Нажмите кнопку ниже, чтобы заявить о переводе!",
             parse_mode='HTML',
