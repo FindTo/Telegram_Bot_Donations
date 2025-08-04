@@ -1,6 +1,7 @@
 import os
 import logging
 import sqlite3
+import asyncio
 from dotenv import load_dotenv
 from flask import Flask, request
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, Bot
@@ -168,10 +169,10 @@ async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # === Flask route for Telegram webhook ===
 @app.route(f"/{BOT_TOKEN}", methods=["POST"])
 def webhook():
-    if request.method == "POST":
-        update = Update.de_json(request.get_json(force=True), bot)
-        application.create_task(application.update_queue.put(update))
-        return "ok"
+    data = request.get_json(force=True)
+    update = Update.de_json(data, bot)
+    asyncio.run(application.process_update(update))
+    return "ok"
 
 # === Health check ===
 @app.route("/")
