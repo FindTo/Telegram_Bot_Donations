@@ -12,10 +12,9 @@ load_dotenv()
 # 🔐 Укажи свой токен и Telegram ID
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
-TARGET_AMOUNT = 1500  # Цель в лари
-DATABASE_NAME = "donations.db"
+TARGET_AMOUNT =  os.getenv("TARGET")  # Цель в лари
+PHOTO_URL = os.getenv("PHOTO_URL")
 
-TARGET_AMOUNT = 1500  # Цель в лари
 DATABASE_NAME = "donations.db"
 
 logging.basicConfig(level=logging.INFO)
@@ -64,10 +63,11 @@ def get_last_pending_id(user_id):
 
 
 # ==== Интерфейс ====
-def progress_bar(current, target):
+def progress_bar(current, target, length=10):
     pct = min(100, int(current / target * 100))
-    bar = '▓' * (pct // 5) + '░' * (20 - pct // 5)
-    return f"[{bar}] {pct}%\n\nСобрано: {current:.2f} ₾ из {target} ₾"
+    filled_len = pct * length // 100
+    bar = '▓' * filled_len + '░' * (length - filled_len)
+    return f"[{bar}] {pct}%  Собрано: {current:.2f} ₾ из {target} ₾"
 
 
 def confirm_keyboard(donation_id):
@@ -85,10 +85,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [[
         InlineKeyboardButton("🎉 Сделать донат", callback_data="donate")
     ], [InlineKeyboardButton("🔄 Обновить", callback_data="refresh")]]
+    await context.bot.send_photo(chat_id=update.effective_chat.id, photo=PHOTO_URL)
     await update.message.reply_text(
-        f"<b>Сбор на кондиционер для Каваи Суши!</b>\n\nГио хочет поставить кондиционер в Кавай Суши, чтобы мы могли еще с большим кайфом собираться там, но пока у него не хватает денег, поэтому он попросил выложить пост с просьбой сделать донаты на кондиционер, чтобы ускорить его покупку и установку!\n\nДонаты по желанию:\n\nBOG GE21BG0000000607397845 Aleksei Koniaev\n\nTBC GE89TB7056145064400005 Artem Proskurin\n\n{progress_bar(total, TARGET_AMOUNT)}\n\nНажмите кнопку ниже, чтобы заявить о переводе!",
+        f"<b>Сбор на кондиционер для Каваи Суши!</b>\n\nГио хочет поставить кондиционер в Кавай Суши, чтобы мы могли еще с большим кайфом собираться там, но пока у него не хватает денег, поэтому он попросил выложить пост с просьбой сделать донаты на кондиционер, чтобы ускорить его покупку и установку!\n\nДонаты по желанию:\n\nBOG <code>GE21BG0000000607397845<code> Aleksei Koniaev\n\nTBC <code>GE89TB7056145064400005<code> Artem Proskurin\n\n{progress_bar(total, TARGET_AMOUNT)}\n\nНажмите кнопку ниже, чтобы заявить о переводе!",
         parse_mode='HTML',
         reply_markup=InlineKeyboardMarkup(keyboard))
+
 
 
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -102,8 +104,9 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     elif query.data == "refresh":
         total = get_total()
+        await context.bot.send_photo(chat_id=update.effective_chat.id, photo=PHOTO_URL)
         await query.edit_message_text(
-            f"<b>Сбор на кондиционер для Каваи Суши!</b>\n\nГио хочет поставить кондиционер в Кавай Суши, чтобы мы могли еще с большим кайфом собираться там, но пока у него не хватает денег, поэтому он попросил выложить пост с просьбой сделать донаты на кондиционер, чтобы ускорить его покупку и установку!\n\nДонаты по желанию:\n\nBOG GE21BG0000000607397845 Aleksei Koniaev\n\nTBC GE89TB7056145064400005 Artem Proskurin\n\n{progress_bar(total, TARGET_AMOUNT)}\n\nНажмите кнопку ниже, чтобы заявить о переводе!",
+            f"<b>Сбор на кондиционер для Каваи Суши!</b>\n\nГио хочет поставить кондиционер в Кавай Суши, чтобы мы могли еще с большим кайфом собираться там, но пока у него не хватает денег, поэтому он попросил выложить пост с просьбой сделать донаты на кондиционер, чтобы ускорить его покупку и установку!\n\nДонаты по желанию:\n\nBOG <code>GE21BG0000000607397845<code> Aleksei Koniaev\n\nTBC <code>GE89TB7056145064400005<code> Artem Proskurin\n\n{progress_bar(total, TARGET_AMOUNT)}\n\nНажмите кнопку ниже, чтобы заявить о переводе!",
             parse_mode='HTML',
             reply_markup=query.message.reply_markup)
 
