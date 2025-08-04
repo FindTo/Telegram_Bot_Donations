@@ -27,9 +27,6 @@ logger = logging.getLogger(__name__)
 app = Flask(__name__)
 bot = Bot(token=BOT_TOKEN)
 
-application = Application.builder().token(BOT_TOKEN).build()
-application.initialize()
-
 def get_conn():
     try:
         return psycopg2.connect(DATABASE_URL)
@@ -206,6 +203,7 @@ def index():
 
 # === Init ===
 init_db()
+application = Application.builder().token(BOT_TOKEN).build()
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CallbackQueryHandler(button, pattern="^(donate|refresh)$"))
 application.add_handler(CallbackQueryHandler(confirm, pattern="^(confirm|reject)_\\d+$"))
@@ -215,3 +213,5 @@ if __name__ == "__main__":
     mode = os.getenv("MODE", "polling")
     if mode == "polling":
         application.run_polling()
+
+application.initialize()
