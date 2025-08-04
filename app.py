@@ -82,7 +82,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_photo(chat_id=update.effective_chat.id, photo=PHOTO_URL)
     await update.message.reply_text(
         f"<b>Сбор на кондиционер для Каваи Суши!</b>\n\n"
-        f"Гио хочет поставить кондиционер в Кавай Суши...\n\n"
+        f"Гио хочет поставить кондиционер в Кавай Суши, чтобы мы могли еще с большим кайфом собираться там, но пока у него не хватает денег, поэтому он попросил выложить пост с просьбой сделать донаты на кондиционер, чтобы ускорить его покупку и установку!\n\n"
         f"Донаты:\n\n"
         f"BOG <code>GE21BG0000000607397845</code> Aleksei Koniaev\n"
         f"TBC <code>GE89TB7056145064400005</code> Artem Proskurin\n\n"
@@ -105,8 +105,12 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_photo(chat_id=update.effective_chat.id, photo=PHOTO_URL)
         await query.edit_message_text(
             f"<b>Сбор на кондиционер для Каваи Суши!</b>\n\n"
-            f"...\n\n"
-            f"{progress_bar(total, TARGET_AMOUNT)}",
+            f"Гио хочет поставить кондиционер в Кавай Суши, чтобы мы могли еще с большим кайфом собираться там, но пока у него не хватает денег, поэтому он попросил выложить пост с просьбой сделать донаты на кондиционер, чтобы ускорить его покупку и установку!\n\n"
+            f"Донаты:\n\n"
+            f"BOG <code>GE21BG0000000607397845</code> Aleksei Koniaev\n"
+            f"TBC <code>GE89TB7056145064400005</code> Artem Proskurin\n\n"
+            f"{progress_bar(total, TARGET_AMOUNT)}\n\n"
+            f"Нажмите кнопку ниже, чтобы заявить о переводе!",
             parse_mode='HTML',
             reply_markup=query.message.reply_markup)
 
@@ -185,3 +189,8 @@ application.add_handler(CommandHandler("start", start))
 application.add_handler(CallbackQueryHandler(button, pattern="^(donate|refresh)$"))
 application.add_handler(CallbackQueryHandler(confirm, pattern="^(confirm|reject)_\\d+$"))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_amount))
+
+if __name__ == "__main__":
+    mode = os.getenv("MODE", "polling")
+    if mode == "polling":
+        application.run_polling()
