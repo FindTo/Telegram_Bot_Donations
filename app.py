@@ -186,13 +186,12 @@ async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ==== Flask для Replit ====
 # === Flask route for Telegram webhook ===
-@app.route(f"/{os.getenv('BOT_TOKEN')}", methods=["POST"])
+@app.route("/webhook", methods=["POST"])
 def webhook():
     data = request.get_json(force=True)
     update = Update.de_json(data, bot)
-    loop = asyncio.get_event_loop()
-    loop.create_task(application.process_update(update))
-    return "ok"
+    asyncio.run(application.process_update(update))
+    return "ok", 200
 
 
 # === Health check ===
