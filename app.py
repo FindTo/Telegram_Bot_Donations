@@ -1,7 +1,8 @@
 import os
 import logging
-import sqlite3
 import asyncio
+import psycopg2
+import psycopg2.extras
 from dotenv import load_dotenv
 from flask import Flask, request
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, Bot
@@ -16,7 +17,7 @@ BOG_IBAN = os.getenv("BOG_IBAN")
 TBC_IBAN = os.getenv("TBC_IBAN")
 TARGET_AMOUNT = float(os.getenv("TARGET", "1000"))
 PHOTO_URL = os.getenv("PHOTO_URL")
-DATABASE_NAME = "donations.db"
+DATABASE_URL = os.getenv("DATABASE_URL")  # здесь у тебя строка подключения к Postgres
 
 # === Logging ===
 logging.basicConfig(level=logging.INFO)
@@ -28,39 +29,48 @@ bot = Bot(token=BOT_TOKEN)
 
 application = Application.builder().token(BOT_TOKEN).build()
 
+def get_conn():
+    return psycopg2.connect(DATABASE_URL)
+
 # === DB ===
 def init_db():
-    with sqlite3.connect(DATABASE_NAME) as conn:
-        conn.execute('''
-            CREATE TABLE IF NOT EXISTS donations (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER,
-                amount REAL,
-                status TEXT DEFAULT 'pending',
-                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
-        ''')
-        conn.commit()
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute('''
+                CREATE TABLE IF NOT EXISTS donations (
+                    id SERIAL PRIMARY KEY,
+                    user_id BIGINT,
+                    amount REAL,
+                    status TEXT DEFAULT 'pending',
+                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            conn.commit()
 
 
 def save_donation(user_id, amount):
-    with sqlite3.connect(DATABASE_NAME) as conn:
-        conn.execute("INSERT INTO donations (user_id, amount) VALUES (?, ?)",
-                     (user_id, amount))
-        conn.commit()
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO donations (user_id, amount) VALUES (%s, %s)",
+                (user_id, amount))
+            conn.commit()
 def get_total():
-    with sqlite3.connect(DATABASE_NAME) as conn:
-        cur = conn.cursor()
-        cur.execute("SELECT SUM(amount) FROM donations WHERE status='confirmed'")
-        return cur.fetchone()[0] or 0
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT SUM(amount) FROM donations WHERE status='confirmed'")
+            result = cur.fetchone()[0]
+            return result or 0
 
 
 def get_last_pending_id(user_id):
-    with sqlite3.connect(DATABASE_NAME) as conn:
-        cur = conn.cursor()
-        cur.execute("SELECT id FROM donations WHERE user_id=? AND status='pending' ORDER BY id DESC LIMIT 1", (user_id,))
-        row = cur.fetchone()
-        return row[0] if row else None
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT id FROM donations WHERE user_id=%s AND status='pending' ORDER BY id DESC LIMIT 1",
+                (user_id,))
+            row = cur.fetchone()
+            return row[0] if row else None
 
 # === UI ===
 def progress_bar(current, target, length=10):
@@ -152,17 +162,17 @@ async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text("❌ Только админ может подтверждать переводы.")
         return
 
-    with sqlite3.connect(DATABASE_NAME) as conn:
+    with get_conn() as conn:
         cur = conn.cursor()
 
         if action == "confirm":
-            cur.execute("UPDATE donations SET status='confirmed' WHERE id=?", (donation_id,))
+            cur.execute("UPDATE donations SET status=%s WHERE id=%s", ('confirmed', donation_id))
             status = "подтверждён"
         else:
-            cur.execute("UPDATE donations SET status='rejected' WHERE id=?", (donation_id,))
+            cur.execute("UPDATE donations SET status=%s WHERE id=%s", ('rejected', donation_id))
             status = "отклонён"
 
-        cur.execute("SELECT user_id, amount FROM donations WHERE id=?", (donation_id,))
+        cur.execute("SELECT user_id, amount FROM donations WHERE id=%s", (donation_id,))
         user_id, amount = cur.fetchone()
         conn.commit()
 
