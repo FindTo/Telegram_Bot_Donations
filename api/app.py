@@ -211,7 +211,7 @@ async def initialize_app():
 @app.route("/webhook", methods=["POST"])
 async def webhook():
     global initialized
-    data = await request.get_json(force=True)
+    data = request.get_json(force=True)
     update = Update.de_json(data, application.bot)
 
     if not initialized:
@@ -219,6 +219,7 @@ async def webhook():
         initialized = True
 
     await application.process_update(update)
+
     return "ok", 200
 
 
