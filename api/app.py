@@ -38,9 +38,9 @@ class TokenFilter(logging.Filter):
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Mask tg token in httpx
-for handler in logging.getLogger().handlers:
-    handler.addFilter(TokenFilter())
+# # Mask tg token in httpx
+# for handler in logging.getLogger().handlers:
+#     handler.addFilter(TokenFilter())
 
 # === Init Flask ===
 app = Flask(__name__)
