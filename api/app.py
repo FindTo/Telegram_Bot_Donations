@@ -20,8 +20,22 @@ PHOTO_URL = os.getenv("PHOTO_URL")
 DATABASE_URL = os.getenv("DATABASE_URL")  # здесь у тебя строка подключения к Postgres
 
 # === Logging ===
+class TokenFilter(logging.Filter):
+    def __init__(self, token: str):
+        super().__init__()
+        self.token = token
+        self.masked = "bot<token>"
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if self.token:
+            record.msg = str(record.msg).replace(self.token, self.masked)
+        return True
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Mask tg token in httpx
+httpx_logger = logging.getLogger("httpx").addFilter(TokenFilter(BOT_TOKEN))
 
 # === Init Flask ===
 app = Flask(__name__)
@@ -218,12 +232,11 @@ def webhook():
 
     try:
         loop = asyncio.get_running_loop()
-    except RuntimeError:  # если loop не запущен
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
-    # Запускаем корутину в event loop без закрытия
-    loop.run_until_complete(process())
+        # Мы уже в event loop-е (Vercel / ASGI / Flask async-aware middleware)
+        loop.create_task(process())
+    except RuntimeError:
+        # Нет активного loop-а (например, при запуске локально)
+        asyncio.run(process())
 
     return "ok", 200
 
