@@ -210,19 +210,15 @@ application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_a
 
 if not application._initialized:
     asyncio.run(application.initialize())
+    asyncio.run(application.start())
 
 # === Webhook ===
 @app.route("/webhook", methods=["POST"])
 def webhook():
     data = request.get_json(force=True)
     update = Update.de_json(data, application.bot)
-
-    async def handle():
-        if not application._running:
-            await application.start()
-        await application.update_queue.put(update)
-
-    asyncio.run(handle())
+    # Просто кладем обновление в очередь (в фоне уже запущен application)
+    asyncio.run(application.update_queue.put(update))
 
     return "ok", 200
 
