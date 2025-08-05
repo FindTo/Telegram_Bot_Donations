@@ -191,31 +191,29 @@ application.add_handler(CallbackQueryHandler(button, pattern="^(donate|refresh)$
 application.add_handler(CallbackQueryHandler(confirm, pattern="^(confirm|reject)_\\d+$"))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_amount))
 
+# init flag
+initialized = False
+
 async def initialize_app():
     await application.initialize()
 
 asyncio.run(initialize_app())
 
-
-# === Flask route for Telegram webhook ===
 @app.route("/webhook", methods=["POST"])
 def webhook():
+    global initialized
     data = request.get_json(force=True)
     update = Update.de_json(data, bot)
 
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+    async def process():
+        nonlocal initialized
+        if not initialized:
+            await application.initialize()
+            initialized = True
+        await application.process_update(update)
 
-    if loop.is_running():
-        loop.create_task(application.process_update(update))
-        return "ok", 200
-    else:
-        loop.run_until_complete(application.process_update(update))
-        return "ok", 200
-
+    asyncio.run(process())
+    return "ok", 200
 
 @app.route("/test", methods=["POST"])
 def test():
