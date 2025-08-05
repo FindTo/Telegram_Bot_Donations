@@ -1,15 +1,15 @@
 {
   "builds": [
-    { "src": "app.py", "use": "@vercel/python" }
+    { "src": "api/webhook.py", "use": "@vercel/python" }
   ],
   "routes": [
     {
-      "src": "/8368261957:AAGpwNtMwzNMZWxPiQZf-izp4X9-Hj0BQ28",
+      "src": "/webhook",
       "dest": "app.py"
     },
     {
       "src": "/.*",
-      "dest": "app.py"
+      "dest": "api/app.py"
     }
   ]
 }
