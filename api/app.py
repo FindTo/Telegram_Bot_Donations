@@ -208,7 +208,15 @@ def webhook():
             initialized = True
         await application.process_update(update)
 
-    asyncio.run(process())
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:  # если loop не запущен
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+    # Запускаем корутину в event loop без закрытия
+    loop.run_until_complete(process())
+
     return "ok", 200
 
 @app.route("/test", methods=["POST"])
