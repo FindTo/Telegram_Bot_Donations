@@ -22,24 +22,11 @@ PHOTO_URL = os.getenv("PHOTO_URL")
 DATABASE_URL = os.getenv("DATABASE_URL")  # здесь у тебя строка подключения к Postgres
 
 # === Logging ===
-class TokenFilter(logging.Filter):
-    def filter(self, record):
-        if record.args:
-            # если используется старый стиль логирования с %s
-            record.args = tuple(
-                str(arg).replace(BOT_TOKEN, MASKED_TOKEN) if isinstance(arg, str) else arg
-                for arg in record.args
-            )
-        if isinstance(record.msg, str):
-            record.msg = record.msg.replace(BOT_TOKEN, MASKED_TOKEN)
-        return True
-
-
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Mask tg token in httpx
-logging.getLogger().addFilter(TokenFilter())
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("telegram.request").setLevel(logging.WARNING)
 
 # === Init Flask ===
 app = Flask(__name__)
@@ -222,27 +209,18 @@ async def initialize_app():
     await application.initialize()
 
 @app.route("/webhook", methods=["POST"])
-def webhook():
+async def webhook():
     global initialized
-    data = request.get_json(force=True)
+    data = await request.get_json(force=True)
     update = Update.de_json(data, application.bot)
 
-    async def process():
-        global initialized
-        if not initialized:
-            await application.initialize()
-            initialized = True
-        await application.process_update(update)
+    if not initialized:
+        await application.initialize()
+        initialized = True
 
-    try:
-        loop = asyncio.get_running_loop()
-        # Мы уже в event loop-е (Vercel / ASGI / Flask async-aware middleware)
-        loop.create_task(process())
-    except RuntimeError:
-        # Нет активного loop-а (например, при запуске локально)
-        asyncio.run(process())
-
+    await application.process_update(update)
     return "ok", 200
+
 
 @app.route("/test", methods=["POST"])
 def test():
