@@ -1,12 +1,9 @@
 import os
 import asyncio
-import threading
 import logging
-
 import psycopg2
 from dotenv import load_dotenv
 from flask import Flask, request
-
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application, CommandHandler, CallbackQueryHandler,
@@ -215,12 +212,22 @@ asyncio.run(application.start())
 # === Webhook ===
 @app.route("/webhook", methods=["POST"])
 def webhook():
-    data = request.get_json(force=True)
-    update = Update.de_json(data, application.bot)
-    # Просто кладем обновление в очередь (в фоне уже запущен application)
-    asyncio.run(application.update_queue.put(update))
+    try:
+        if not application._running:
+            return "App not ready", 503
 
-    return "ok", 200
+        data = request.get_json(force=True)
+        if not data:
+            return "Empty data", 400
+
+        update = Update.de_json(data, application.bot)
+        asyncio.run(application.update_queue.put(update))
+
+        return "ok", 200
+
+    except Exception as e:
+        logger.exception("Webhook failed")
+        return "Internal Server Error", 500
 
 
 @app.route("/")
