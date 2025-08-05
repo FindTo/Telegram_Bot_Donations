@@ -206,9 +206,9 @@ application.add_handler(CallbackQueryHandler(button, pattern="^(donate|refresh)$
 application.add_handler(CallbackQueryHandler(confirm, pattern="^(confirm|reject)_\\d+$"))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_amount))
 
-# init_db()
-# asyncio.run(application.initialize())
-# asyncio.run(application.start())
+init_db()
+asyncio.run(application.initialize())
+asyncio.run(application.start())
 
 # === Webhook ===
 @app.route("/webhook", methods=["POST"])
@@ -250,6 +250,7 @@ def test():
 # === Entry Point ===
 if __name__ == "__main__":
     mode = os.getenv("MODE", "polling")
-    init_db()
     if mode == "polling":
         application.run_polling()
+    else:
+        app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
