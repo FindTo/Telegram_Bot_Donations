@@ -226,7 +226,7 @@ def webhook():
                 await application.initialize()
             if not application._running:
                 await application.start()
-            await application.update_queue.put(update)
+            await application.process_update(update)
 
         asyncio.run(process())
         return "ok", 200
