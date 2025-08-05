@@ -1,6 +1,6 @@
 import os
-import re
 import logging
+import threading
 import asyncio
 import psycopg2
 import psycopg2.extras
@@ -209,16 +209,26 @@ async def initialize_app():
     await application.initialize()
 
 @app.route("/webhook", methods=["POST"])
-async def webhook():
+def webhook():
     global initialized
     data = request.get_json(force=True)
     update = Update.de_json(data, application.bot)
 
-    if not initialized:
-        await application.initialize()
-        initialized = True
+    def run():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
 
-    await application.process_update(update)
+        async def handle():
+            global initialized
+            if not initialized:
+                await application.initialize()
+                initialized = True
+            await application.process_update(update)
+
+        loop.run_until_complete(handle())
+        loop.close()
+
+    threading.Thread(target=run).start()
 
     return "ok", 200
 
