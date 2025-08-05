@@ -2,7 +2,8 @@ import os
 import logging
 import psycopg2
 from dotenv import load_dotenv
-from flask import Flask, request
+from fastapi import FastAPI, Request
+from fastapi.responses import PlainTextResponse
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application, CommandHandler, CallbackQueryHandler,
@@ -28,7 +29,7 @@ logger = logging.getLogger(__name__)
 # logging.getLogger("telegram.request").setLevel(logging.WARNING)
 
 # === Flask ===
-app = Flask(__name__)
+app = FastAPI()
 
 # === Telegram App ===
 application = Application.builder().token(BOT_TOKEN).build()
@@ -206,43 +207,45 @@ application.add_handler(CallbackQueryHandler(button, pattern="^(donate|refresh)$
 application.add_handler(CallbackQueryHandler(confirm, pattern="^(confirm|reject)_\\d+$"))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_amount))
 
-@app.before_serving
-async def startup():
+
+@app.on_event("startup")
+async def on_startup():
     init_db()
     await application.initialize()
     await application.start()
-    await application.bot.set_webhook(url=os.environ["WEBHOOK_URL"] + WEBHOOK_PATH)
+    webhook_url = os.environ.get("WEBHOOK_URL", "")
+    if webhook_url:
+        await application.bot.set_webhook(url=webhook_url + WEBHOOK_PATH)
+        logger.info(f"Webhook set to {webhook_url + WEBHOOK_PATH}")
 
-@app.after_serving
-async def shutdown():
+
+# --- FastAPI shutdown event ---
+@app.on_event("shutdown")
+async def on_shutdown():
     await application.stop()
     await application.shutdown()
-    print("🛑 Bot stopped")
-print("✅ Bot started and webhook set")
+
 
 # === Webhook ===
-@app.route(WEBHOOK_PATH, methods=["POST"])
-async def webhook():
-    data = await request.get_json()
+@app.post(WEBHOOK_PATH)
+async def telegram_webhook(request: Request):
+    data = await request.json()
     update = Update.de_json(data, application.bot)
     await application.process_update(update)
-    return "ok", 200
+    return PlainTextResponse("ok")
 
 
-@app.route("/")
-def index():
+# --- Health check ---
+@app.get("/", response_class=PlainTextResponse)
+async def index():
     return "Bot is running on Vercel!"
 
+@app.post("/test", response_class=PlainTextResponse)
+async def test():
+    return "ok"
 
-@app.route("/test", methods=["POST"])
-def test():
-    return "ok", 200
-
-
-# === Entry Point ===
+# --- Polling mode entry point ---
 if __name__ == "__main__":
     mode = os.getenv("MODE", "polling")
     if mode == "polling":
         application.run_polling()
-    else:
-        app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
