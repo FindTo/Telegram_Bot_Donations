@@ -208,25 +208,18 @@ application.add_handler(CallbackQueryHandler(button, pattern="^(donate|refresh)$
 application.add_handler(CallbackQueryHandler(confirm, pattern="^(confirm|reject)_\\d+$"))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_amount))
 
+if not application._initialized:
+    asyncio.run(application.initialize())
 
 # === Webhook ===
 @app.route("/webhook", methods=["POST"])
 def webhook():
     data = request.get_json(force=True)
+    update = Update.de_json(data, application.bot)
 
-    def run():
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+    # Просто обрабатываем обновление
+    asyncio.run(application.process_update(update))
 
-        async def handle():
-            await application.initialize()
-            update = Update.de_json(data, application.bot)
-            await application.process_update(update)
-
-        loop.run_until_complete(handle())
-        loop.close()
-
-    threading.Thread(target=run).start()
     return "ok", 200
 
 
