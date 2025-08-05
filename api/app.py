@@ -208,9 +208,9 @@ application.add_handler(CallbackQueryHandler(button, pattern="^(donate|refresh)$
 application.add_handler(CallbackQueryHandler(confirm, pattern="^(confirm|reject)_\\d+$"))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_amount))
 
-if not application._initialized:
-    asyncio.run(application.initialize())
-    asyncio.run(application.start())
+init_db()
+asyncio.run(application.initialize())
+asyncio.run(application.start())
 
 # === Webhook ===
 @app.route("/webhook", methods=["POST"])
