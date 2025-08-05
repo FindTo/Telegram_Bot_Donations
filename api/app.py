@@ -25,8 +25,6 @@ logger = logging.getLogger(__name__)
 
 # === Init Flask ===
 app = Flask(__name__)
-bot = Bot(token=BOT_TOKEN)
-
 def get_conn():
     try:
         return psycopg2.connect(DATABASE_URL)
@@ -201,7 +199,7 @@ async def initialize_app():
 def webhook():
     global initialized
     data = request.get_json(force=True)
-    update = Update.de_json(data, bot)
+    update = Update.de_json(data, application.bot)
 
     async def process():
         global initialized
