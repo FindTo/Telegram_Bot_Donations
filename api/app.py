@@ -205,24 +205,30 @@ application.add_handler(CallbackQueryHandler(button, pattern="^(donate|refresh)$
 application.add_handler(CallbackQueryHandler(confirm, pattern="^(confirm|reject)_\\d+$"))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_amount))
 
-init_db()
-asyncio.run(application.initialize())
-asyncio.run(application.start())
+# init_db()
+# asyncio.run(application.initialize())
+# asyncio.run(application.start())
 
 # === Webhook ===
 @app.route("/webhook", methods=["POST"])
 def webhook():
     try:
-        if not application._running:
-            return "App not ready", 503
-
         data = request.get_json(force=True)
+        print("Got update:", data)
         if not data:
             return "Empty data", 400
 
         update = Update.de_json(data, application.bot)
-        asyncio.run(application.update_queue.put(update))
 
+        async def process():
+            if not application._initialized:
+                init_db()
+                await application.initialize()
+            if not application._running:
+                await application.start()
+            await application.update_queue.put(update)
+
+        asyncio.run(process())
         return "ok", 200
 
     except Exception as e:
