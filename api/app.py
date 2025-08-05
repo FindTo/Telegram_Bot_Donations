@@ -1,4 +1,5 @@
 import os
+import re
 import logging
 import asyncio
 import psycopg2
@@ -12,6 +13,7 @@ from telegram.ext import (Application, CommandHandler, CallbackQueryHandler,
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
+MASKED_TOKEN = "TOKEN_REDACTED"
 ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
 BOG_IBAN = os.getenv("BOG_IBAN")
 TBC_IBAN = os.getenv("TBC_IBAN")
@@ -21,21 +23,24 @@ DATABASE_URL = os.getenv("DATABASE_URL")  # здесь у тебя строка 
 
 # === Logging ===
 class TokenFilter(logging.Filter):
-    def __init__(self, token: str):
-        super().__init__()
-        self.token = token
-        self.masked = "bot<token>"
-
-    def filter(self, record: logging.LogRecord) -> bool:
-        if self.token:
-            record.msg = str(record.msg).replace(self.token, self.masked)
+    def filter(self, record):
+        if record.args:
+            # если используется старый стиль логирования с %s
+            record.args = tuple(
+                str(arg).replace(BOT_TOKEN, MASKED_TOKEN) if isinstance(arg, str) else arg
+                for arg in record.args
+            )
+        if isinstance(record.msg, str):
+            record.msg = record.msg.replace(BOT_TOKEN, MASKED_TOKEN)
         return True
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Mask tg token in httpx
-httpx_logger = logging.getLogger("httpx").addFilter(TokenFilter(BOT_TOKEN))
+for handler in logging.getLogger().handlers:
+    handler.addFilter(TokenFilter())
 
 # === Init Flask ===
 app = Flask(__name__)
