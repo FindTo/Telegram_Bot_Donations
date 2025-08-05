@@ -217,8 +217,12 @@ def webhook():
     data = request.get_json(force=True)
     update = Update.de_json(data, application.bot)
 
-    # Просто обрабатываем обновление
-    asyncio.run(application.process_update(update))
+    async def handle():
+        if not application._running:
+            await application.start()
+        await application.update_queue.put(update)
+
+    asyncio.run(handle())
 
     return "ok", 200
 
