@@ -156,6 +156,7 @@ async def handle_amount(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     save_donation(user_id, amount)
     donation_id = get_last_pending_id(user_id)
+    logger.info(f"Last pending donation_id: {donation_id}")
 
     await update.message.reply_text("✅ Заявка отправлена. Ожидайте подтверждения!")
 
