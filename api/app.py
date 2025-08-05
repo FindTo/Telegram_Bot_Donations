@@ -88,6 +88,9 @@ def confirm_keyboard(donation_id):
 
 
 # === Handlers ===
+
+async def error_handler(update: Update | None, context: ContextTypes.DEFAULT_TYPE) -> None:
+    logger.error(f"Exception while handling an update: {context.error}", exc_info=context.error)
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     total = get_total()
     keyboard = [[
@@ -166,7 +169,6 @@ async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     with get_conn() as conn:
         cur = conn.cursor()
-
         if action == "confirm":
             cur.execute("UPDATE donations SET status=%s WHERE id=%s", ('confirmed', donation_id))
             status = "подтверждён"
@@ -179,11 +181,17 @@ async def confirm(update: Update, context: ContextTypes.DEFAULT_TYPE):
         conn.commit()
 
     await context.bot.send_message(chat_id=user_id, text=f"🎉 Ваш донат на {amount} ₾ был {status}. Спасибо!")
-    await query.edit_message_text(f"Заявка #{donation_id} {status}.")
+
+    try:
+        await query.edit_message_text(f"Заявка #{donation_id} {status}.")
+    except Exception as e:
+        # Логируем ошибку, если сообщение уже нельзя отредактировать
+        logging.error(f"Failed to edit the message: {e}")
 
 # === Init ===
 init_db()
 application = Application.builder().token(BOT_TOKEN).build()
+application.add_error_handler(error_handler)
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CallbackQueryHandler(button, pattern="^(donate|refresh)$"))
 application.add_handler(CallbackQueryHandler(confirm, pattern="^(confirm|reject)_\\d+$"))
