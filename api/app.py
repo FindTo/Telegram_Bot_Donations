@@ -197,8 +197,6 @@ initialized = False
 async def initialize_app():
     await application.initialize()
 
-asyncio.run(initialize_app())
-
 @app.route("/webhook", methods=["POST"])
 def webhook():
     global initialized
