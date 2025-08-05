@@ -1,5 +1,4 @@
 import os
-import asyncio
 import logging
 import psycopg2
 from dotenv import load_dotenv
@@ -14,6 +13,7 @@ from telegram.ext import (
 load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
+WEBHOOK_PATH = os.environ.get("WEBHOOK_PATH", "/webhook")
 ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
 BOG_IBAN = os.getenv("BOG_IBAN")
 TBC_IBAN = os.getenv("TBC_IBAN")
@@ -206,35 +206,27 @@ application.add_handler(CallbackQueryHandler(button, pattern="^(donate|refresh)$
 application.add_handler(CallbackQueryHandler(confirm, pattern="^(confirm|reject)_\\d+$"))
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_amount))
 
-init_db()
-asyncio.run(application.initialize())
-asyncio.run(application.start())
+@app.before_serving
+async def startup():
+    init_db()
+    await application.initialize()
+    await application.start()
+    await application.bot.set_webhook(url=os.environ["WEBHOOK_URL"] + WEBHOOK_PATH)
+
+@app.after_serving
+async def shutdown():
+    await application.stop()
+    await application.shutdown()
+    print("🛑 Bot stopped")
+print("✅ Bot started and webhook set")
 
 # === Webhook ===
-@app.route("/webhook", methods=["POST"])
-def webhook():
-    try:
-        data = request.get_json(force=True)
-        print("Got update:", data)
-        if not data:
-            return "Empty data", 400
-
-        update = Update.de_json(data, application.bot)
-
-        async def process():
-            if not application._initialized:
-                init_db()
-                await application.initialize()
-            if not application._running:
-                await application.start()
-            await application.process_update(update)
-
-        asyncio.run(process())
-        return "ok", 200
-
-    except Exception as e:
-        logger.exception("Webhook failed")
-        return "Internal Server Error", 500
+@app.route(WEBHOOK_PATH, methods=["POST"])
+async def webhook():
+    data = await request.get_json()
+    update = Update.de_json(data, application.bot)
+    await application.process_update(update)
+    return "ok", 200
 
 
 @app.route("/")
