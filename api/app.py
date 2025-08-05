@@ -27,8 +27,8 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 # === Logging ===
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-logging.getLogger("httpx").setLevel(logging.WARNING)
-logging.getLogger("telegram.request").setLevel(logging.WARNING)
+# logging.getLogger("httpx").setLevel(logging.WARNING)
+# logging.getLogger("telegram.request").setLevel(logging.WARNING)
 
 # === Flask ===
 app = Flask(__name__)
